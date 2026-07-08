@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Le Grand Quizz</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap');
+
+  :root{
+    --ink:#10152B;
+    --ink-2:#171E3A;
+    --paper:#EDEAE1;
+    --gold:#D4A94B;
+    --gold-dim:#8A7239;
+    --coral:#E4634B;
+    --green:#4FA98A;
+    --line: rgba(237,234,225,0.14);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background: var(--ink);
+    color: var(--paper);
+    font-family:'IBM Plex Sans', sans-serif;
+    overflow-x:hidden;
+    min-height:100vh;
+    min-height:100dvh;
+  }
+  #app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    padding-top: calc(var(--safe-top) + 14px);
+    padding-bottom: calc(var(--safe-bottom) + 14px);
+    position:relative;
+  }
+
+  /* subtle background texture: scoreboard dot grid */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image: radial-gradient(rgba(237,234,225,0.05) 1px, transparent 1px);
+    background-size: 18px 18px;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  /* ---------- HEADER / SCOREBOARD ---------- */
+  .scoreboard{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 0 20px 16px;
+    z-index:2;
+  }
+  .brand{
+    font-family:'Archivo Black', sans-serif;
+    font-size:15px;
+    letter-spacing:0.02em;
+    color: var(--gold);
+    text-transform:uppercase;
+  }
+  .flip-score{
+    display:flex;
+    gap:4px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .flip-digit{
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius:4px;
+    width:26px;
+    height:32px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:17px;
+    color: var(--gold);
+    position:relative;
+    overflow:hidden;
+  }
+  .flip-digit.flip::after{
+    content:"";
+    position:absolute; inset:0;
+    background: var(--gold);
+    animation: flashDigit 0.4s ease;
+  }
+  @keyframes flashDigit{
+    0%{opacity:0.55;}
+    100%{opacity:0;}
+  }
+
+  /* ---------- PROGRESS ---------- */
+  .progress-row{
+    display:flex;
+    gap:5px;
+    padding: 0 20px 22px;
+    z-index:2;
+  }
+  .progress-dot{
+    flex:1;
+    height:4px;
+    border-radius:2px;
+    background: var(--line);
+    overflow:hidden;
+    position:relative;
+  }
+  .progress-dot .fill{
+    position:absolute; inset:0;
+    background: var(--gold);
+    transform: scaleX(0);
+    transform-origin:left;
+    transition: transform 0.35s ease;
+  }
+  .progress-dot.done .fill{ transform: scaleX(1); background: var(--green);}
+  .progress-dot.current .fill{ transform: scaleX(1); background: var(--gold);}
+  .progress-dot.wrong .fill{ transform: scaleX(1); background: var(--coral);}
+
+  /* ---------- MAIN CARD ---------- */
+  main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    padding: 0 20px;
+    z-index:2;
+  }
+  .category-tag{
+    display:inline-flex;
+    align-self:flex-start;
+    align-items:center;
+    gap:6px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color: var(--ink);
+    background: var(--gold);
+    padding: 5px 10px;
+    border-radius: 3px;
+    margin-bottom:18px;
+  }
+  .q-count{
+    font-family:'IBM Plex Mono', monospace;
+    color: var(--gold-dim);
+    font-size:11px;
+    font-weight:600;
+  }
+
+  .question{
+    font-family:'Archivo Black', sans-serif;
+    font-size: 26px;
+    line-height:1.25;
+    letter-spacing:-0.01em;
+    margin: 0 0 28px;
+  }
+
+  .options{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .option{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    background: var(--ink-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 16px;
+    font-size:16px;
+    font-weight:500;
+    color: var(--paper);
+    text-align:left;
+    cursor:pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    -webkit-user-select:none;
+    user-select:none;
+  }
+  .option:active{ transform: scale(0.98); }
+  .option .letter{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:700;
+    font-size:13px;
+    color: var(--gold-dim);
+    border: 1px solid var(--line);
+    border-radius:6px;
+    width:26px; height:26px;
+    min-width:26px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .option.correct{
+    border-color: var(--green);
+    background: rgba(79,169,138,0.14);
+  }
+  .option.correct .letter{ color: var(--green); border-color: var(--green); }
+  .option.wrong{
+    border-color: var(--coral);
+    background: rgba(228,99,75,0.14);
+  }
+  .option.wrong .letter{ color: var(--coral); border-color: var(--coral); }
+  .option.disabled{ pointer-events:none; opacity:0.85; }
+  .option.dim{ opacity:0.45; }
+
+  .feedback{
+    margin-top:20px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    color: var(--gold-dim);
+    min-height:18px;
+    opacity:0;
+    transform: translateY(4px);
+    transition: all 0.25s ease;
+  }
+  .feedback.show{ opacity:1; transform:translateY(0); }
+
+  .next-btn{
+    margin-top:auto;
+    padding-top:24px;
+  }
+  .btn{
+    width:100%;
+    padding:16px;
+    border:none;
+    border-radius:10px;
+    background: var(--gold);
+    color: var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-weight:700;
+    font-size:16px;
+    cursor:pointer;
+    transition: transform 0.15s ease, opacity 0.2s ease;
+    opacity:0;
+    pointer-events:none;
+  }
+  .btn.show{ opacity:1; pointer-events:auto; }
+  .btn:active{ transform: scale(0.98); }
+  .btn.ghost{
+    background:transparent;
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+  }
+
+  /* ---------- STREAK FLAME ---------- */
+  .streak{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color: var(--coral);
+    height:16px;
+    margin-bottom:10px;
+    opacity:0;
+    transition:opacity 0.2s ease;
+  }
+  .streak.show{ opacity:1; }
+
+  /* ---------- RESULTS ---------- */
+  .results{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding: 20px;
+  }
+  .results .big-score{
+    font-family:'Archivo Black', sans-serif;
+    font-size:72px;
+    color: var(--gold);
+    line-height:1;
+    margin-bottom:6px;
+  }
+  .results .big-score span{
+    font-size:28px;
+    color: var(--gold-dim);
+  }
+  .results .title{
+    font-family:'Archivo Black', sans-serif;
+    font-size:22px;
+    margin: 6px 0 8px;
+  }
+  .results .subtitle{
+    color: rgba(237,234,225,0.65);
+    font-size:14px;
+    max-width:280px;
+    margin: 0 0 32px;
+    line-height:1.5;
+  }
+  .results .breakdown{
+    display:flex;
+    gap:18px;
+    margin-bottom:36px;
+  }
+  .results .stat{
+    font-family:'IBM Plex Mono', monospace;
+    text-align:center;
+  }
+  .results .stat .n{
+    font-size:22px;
+    font-weight:700;
+    display:block;
+  }
+  .results .stat .l{
+    font-size:10px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color: var(--gold-dim);
+  }
+  .results .actions{
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  /* ---------- START SCREEN ---------- */
+  .start{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding: 20px;
+  }
+  .start .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    color: var(--gold-dim);
+    font-size:12px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    margin-bottom:14px;
+  }
+  .start h1{
+    font-family:'Archivo Black', sans-serif;
+    font-size:40px;
+    line-height:1.05;
+    margin: 0 0 16px;
+  }
+  .start h1 em{
+    font-style:normal;
+    color: var(--gold);
+  }
+  .start p{
+    color: rgba(237,234,225,0.65);
+    font-size:15px;
+    line-height:1.55;
+    margin: 0 0 36px;
+    max-width:340px;
+  }
+  .start .rules{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin-bottom:36px;
+  }
+  .rule{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    font-size:13px;
+    color: rgba(237,234,225,0.8);
+  }
+  .rule .dot{
+    width:6px; height:6px; border-radius:50%;
+    background: var(--gold);
+    flex-shrink:0;
+  }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- START SCREEN -->
+  <div class="start" id="startScreen">
+    <div class="eyebrow">10 questions · culture générale</div>
+    <h1>Le Grand<br><em>Quizz</em></h1>
+    <p>Histoire, géographie, sciences, arts, sport : dix questions piochées au hasard pour tester tes connaissances.</p>
+    <div class="rules">
+      <div class="rule"><span class="dot"></span> 4 choix par question, une seule bonne réponse</div>
+      <div class="rule"><span class="dot"></span> Ton score s'affiche en direct en haut de l'écran</div>
+      <div class="rule"><span class="dot"></span> Un nouveau tirage à chaque partie</div>
+    </div>
+    <button class="btn show" id="startBtn" style="position:static;">Commencer</button>
+  </div>
+
+  <!-- QUIZ SCREEN -->
+  <div class="hidden" id="quizScreen" style="display:flex; flex-direction:column; flex:1;">
+    <div class="scoreboard">
+      <div class="brand">Grand Quizz</div>
+      <div class="flip-score" id="flipScore">
+        <div class="flip-digit">0</div>
+        <div class="flip-digit">0</div>
+      </div>
+    </div>
+    <div class="progress-row" id="progressRow"></div>
+
+    <main>
+      <span class="q-count" id="qCount">QUESTION 1 / 10</span>
+      <span class="category-tag" id="catTag" style="margin-top:10px;">Histoire</span>
+      <h2 class="question" id="questionText"></h2>
+
+      <div class="streak" id="streakBadge">🔥 <span id="streakN">0</span> bonnes réponses d'affilée</div>
+
+      <div class="options" id="optionsList"></div>
+
+      <div class="feedback" id="feedback"></div>
+
+      <div class="next-btn">
+        <button class="btn" id="nextBtn">Question suivante</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- RESULTS SCREEN -->
+  <div class="hidden results" id="resultsScreen">
+    <div class="eyebrow" style="font-family:'IBM Plex Mono', monospace; color:var(--gold-dim); font-size:12px; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:10px;">Partie terminée</div>
+    <div class="big-score" id="finalScore">0<span>/10</span></div>
+    <div class="title" id="resultTitle">Bien joué !</div>
+    <p class="subtitle" id="resultSubtitle">Tu maîtrises plutôt bien le sujet.</p>
+    <div class="breakdown">
+      <div class="stat"><span class="n" id="statCorrect">0</span><span class="l">Bonnes</span></div>
+      <div class="stat"><span class="n" id="statWrong">0</span><span class="l">Fausses</span></div>
+      <div class="stat"><span class="n" id="statStreak">0</span><span class="l">Meilleure série</span></div>
+    </div>
+    <div class="actions">
+      <button class="btn show" id="retryBtn">Rejouer</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+
+  const BANK = [
+    {cat:"Histoire", q:"En quelle année a eu lieu la prise de la Bastille ?", opts:["1789","1799","1804","1776"], a:0},
+    {cat:"Histoire", q:"Quel traité a mis fin à la Première Guerre mondiale ?", opts:["Traité de Westphalie","Traité de Versailles","Traité de Rome","Traité de Vienne"], a:1},
+    {cat:"Histoire", q:"Qui était empereur des Français en 1810 ?", opts:["Louis XVIII","Napoléon Bonaparte","Charles X","Louis-Philippe"], a:1},
+    {cat:"Histoire", q:"Quel mur est tombé en 1989 ?", opts:["Mur d'Hadrien","Mur de Berlin","Grande Muraille","Mur des Lamentations"], a:1},
+    {cat:"Histoire", q:"Quelle civilisation a construit Machu Picchu ?", opts:["Maya","Aztèque","Inca","Olmèque"], a:2},
+    {cat:"Histoire", q:"En quelle année Christophe Colomb a-t-il découvert l'Amérique ?", opts:["1492","1512","1453","1476"], a:0},
+    {cat:"Histoire", q:"En quelle année a débuté la Première Guerre mondiale ?", opts:["1912","1914","1916","1918"], a:1},
+    {cat:"Histoire", q:"En quelle année la Seconde Guerre mondiale a-t-elle pris fin en Europe ?", opts:["1943","1944","1945","1946"], a:2},
+    {cat:"Histoire", q:"En quelle année a eu lieu la révolution russe qui renversa le tsar ?", opts:["1905","1917","1921","1929"], a:1},
+    {cat:"Histoire", q:"Qui a été le premier président des États-Unis ?", opts:["Thomas Jefferson","Abraham Lincoln","George Washington","John Adams"], a:2},
+    {cat:"Histoire", q:"Quelle reine britannique a régné le plus longtemps avant Elizabeth II ?", opts:["Anne","Victoria","Mary I","Elizabeth I"], a:1},
+    {cat:"Histoire", q:"En quelle année la France a-t-elle aboli définitivement l'esclavage ?", opts:["1794","1815","1848","1871"], a:2},
+    {cat:"Histoire", q:"Qui a été le premier homme à marcher sur la Lune ?", opts:["Buzz Aldrin","Youri Gagarine","Neil Armstrong","John Glenn"], a:2},
+    {cat:"Histoire", q:"Quel roi de France est surnommé le Roi Soleil ?", opts:["Louis XIII","Louis XIV","Louis XV","Henri IV"], a:1},
+    {cat:"Histoire", q:"En quelle année le Titanic a-t-il coulé ?", opts:["1905","1912","1918","1923"], a:1},
+    {cat:"Histoire", q:"Quelle bataille a marqué la défaite finale de Napoléon ?", opts:["Austerlitz","Trafalgar","Waterloo","Iéna"], a:2},
+    {cat:"Histoire", q:"Quelle était la capitale de l'Empire byzantin ?", opts:["Athènes","Rome","Constantinople","Alexandrie"], a:2},
+    {cat:"Histoire", q:"Quelle assemblée a adopté la Déclaration des droits de l'homme et du citoyen en 1789 ?", opts:["Le Sénat","L'Assemblée nationale constituante","La Convention","Le Directoire"], a:1},
+    {cat:"Histoire", q:"En quelle année a eu lieu le débarquement de Normandie ?", opts:["1942","1943","1944","1945"], a:2},
+    {cat:"Histoire", q:"Quel pharaon a fait construire la grande pyramide de Gizeh ?", opts:["Toutankhamon","Ramsès II","Khéops","Akhenaton"], a:2},
+    {cat:"Histoire", q:"Quelle guerre a opposé le Nord et le Sud des États-Unis ?", opts:["La guerre d'indépendance","La guerre de Sécession","La guerre hispano-américaine","La guerre de 1812"], a:1},
+    {cat:"Histoire", q:"Quel philosophe grec fut le précepteur d'Alexandre le Grand ?", opts:["Socrate","Platon","Aristote","Pythagore"], a:2},
+    {cat:"Histoire", q:"Quelle civilisation antique a construit le Colisée ?", opts:["Les Grecs","Les Romains","Les Égyptiens","Les Perses"], a:1},
+    {cat:"Histoire", q:"En quelle année le mur de Berlin a-t-il été construit ?", opts:["1949","1955","1961","1968"], a:2},
+    {cat:"Histoire", q:"Quel traité a créé l'Union européenne en 1992 ?", opts:["Traité de Rome","Traité de Maastricht","Traité de Lisbonne","Traité de Nice"], a:1},
+    {cat:"Géographie", q:"Quel est le plus long fleuve du monde ?", opts:["Amazone","Nil","Mississippi","Yangtsé"], a:1},
+    {cat:"Géographie", q:"Quelle est la capitale de l'Australie ?", opts:["Sydney","Melbourne","Canberra","Perth"], a:2},
+    {cat:"Géographie", q:"Quel pays compte le plus grand nombre de fuseaux horaires ?", opts:["Russie","Chine","France","États-Unis"], a:2},
+    {cat:"Géographie", q:"Quelle est la plus haute montagne d'Europe ?", opts:["Mont Blanc","Cervin","Elbrouz","Mont Rose"], a:2},
+    {cat:"Géographie", q:"Quel est le plus petit pays du monde ?", opts:["Monaco","Saint-Marin","Vatican","Liechtenstein"], a:2},
+    {cat:"Géographie", q:"Quel océan est le plus étendu ?", opts:["Atlantique","Indien","Pacifique","Arctique"], a:2},
+    {cat:"Géographie", q:"Quelle est la capitale du Japon ?", opts:["Osaka","Kyoto","Tokyo","Yokohama"], a:2},
+    {cat:"Géographie", q:"Quel est le plus grand désert chaud du monde ?", opts:["Kalahari","Gobi","Sahara","Namib"], a:2},
+    {cat:"Géographie", q:"Quel pays a la plus grande superficie du monde ?", opts:["Canada","Chine","États-Unis","Russie"], a:3},
+    {cat:"Géographie", q:"Quelle est la capitale du Canada ?", opts:["Toronto","Vancouver","Ottawa","Montréal"], a:2},
+    {cat:"Géographie", q:"Quel fleuve traverse Paris ?", opts:["La Loire","La Seine","Le Rhône","La Garonne"], a:1},
+    {cat:"Géographie", q:"Quelle chaîne de montagnes sépare traditionnellement l'Europe et l'Asie ?", opts:["Les Alpes","Les Carpates","L'Oural","Le Caucase"], a:2},
+    {cat:"Géographie", q:"Quel est le pays le plus peuplé du monde aujourd'hui ?", opts:["Chine","Inde","Indonésie","États-Unis"], a:1},
+    {cat:"Géographie", q:"Quelle mer borde l'Égypte à l'est ?", opts:["La mer Noire","La mer Rouge","La mer Caspienne","La mer Méditerranée"], a:1},
+    {cat:"Géographie", q:"Quelle est la capitale de l'Italie ?", opts:["Milan","Naples","Venise","Rome"], a:3},
+    {cat:"Géographie", q:"Quel est le point culminant d'Afrique ?", opts:["Mont Kenya","Kilimandjaro","Mont Cameroun","Ras Dashen"], a:1},
+    {cat:"Géographie", q:"Quel détroit sépare l'Espagne du Maroc ?", opts:["Détroit de Bering","Détroit de Gibraltar","Détroit d'Ormuz","Détroit de Malacca"], a:1},
+    {cat:"Géographie", q:"Quelle ville est surnommée la 'Ville éternelle' ?", opts:["Athènes","Rome","Jérusalem","Le Caire"], a:1},
+    {cat:"Géographie", q:"Quel pays a pour capitale Wellington ?", opts:["Australie","Nouvelle-Zélande","Fidji","Afrique du Sud"], a:1},
+    {cat:"Géographie", q:"Quel est le plus grand lac d'eau douce au monde par superficie ?", opts:["Lac Victoria","Lac Baïkal","Lac Supérieur","Lac Michigan"], a:2},
+    {cat:"Géographie", q:"Quelle est la capitale la plus haute du monde ?", opts:["Quito","La Paz","Bogota","Katmandou"], a:1},
+    {cat:"Géographie", q:"Quel pays a la forme d'une botte sur la carte ?", opts:["La Grèce","L'Italie","Le Portugal","La Croatie"], a:1},
+    {cat:"Géographie", q:"Quel continent est traversé par l'équateur et compte le plus grand nombre de pays traversés ?", opts:["Asie","Amérique du Sud","Afrique","Océanie"], a:2},
+    {cat:"Géographie", q:"Quelle est la capitale de l'Égypte ?", opts:["Alexandrie","Le Caire","Louxor","Gizeh"], a:1},
+    {cat:"Géographie", q:"Quel pays forme le plus grand archipel du monde ?", opts:["Philippines","Japon","Indonésie","Grèce"], a:2},
+    {cat:"Sciences", q:"Quel est l'élément chimique le plus abondant dans l'univers ?", opts:["Oxygène","Carbone","Hydrogène","Hélium"], a:2},
+    {cat:"Sciences", q:"Combien d'os compte le corps humain adulte ?", opts:["186","206","226","246"], a:1},
+    {cat:"Sciences", q:"Quelle planète est surnommée la 'planète rouge' ?", opts:["Vénus","Jupiter","Mars","Saturne"], a:2},
+    {cat:"Sciences", q:"Quelle est la vitesse approximative de la lumière dans le vide ?", opts:["300 000 km/s","150 000 km/s","1 000 000 km/s","30 000 km/s"], a:0},
+    {cat:"Sciences", q:"Quel gaz les plantes absorbent-elles principalement lors de la photosynthèse ?", opts:["Oxygène","Azote","Dioxyde de carbone","Hydrogène"], a:2},
+    {cat:"Sciences", q:"Quelle est l'unité de mesure de la force ?", opts:["Le watt","Le newton","Le joule","Le pascal"], a:1},
+    {cat:"Sciences", q:"Qui a découvert la pénicilline ?", opts:["Louis Pasteur","Alexander Fleming","Robert Koch","Joseph Lister"], a:1},
+    {cat:"Sciences", q:"Quel est le symbole chimique de l'or ?", opts:["Ag","Au","Or","Go"], a:1},
+    {cat:"Sciences", q:"Quelle est la plus grande planète du système solaire ?", opts:["Saturne","Neptune","Jupiter","Uranus"], a:2},
+    {cat:"Sciences", q:"Combien de chromosomes possède une cellule humaine normale ?", opts:["23","44","46","48"], a:2},
+    {cat:"Sciences", q:"Quel scientifique a formulé la théorie de la relativité ?", opts:["Isaac Newton","Albert Einstein","Niels Bohr","Max Planck"], a:1},
+    {cat:"Sciences", q:"Quel est l'organe le plus étendu du corps humain ?", opts:["Le foie","Le cœur","La peau","Le poumon"], a:2},
+    {cat:"Sciences", q:"Quelle est l'unité de mesure de l'intensité électrique ?", opts:["Le volt","L'ampère","L'ohm","Le watt"], a:1},
+    {cat:"Sciences", q:"Quel gaz est le plus abondant dans l'atmosphère terrestre ?", opts:["Oxygène","Azote","Dioxyde de carbone","Argon"], a:1},
+    {cat:"Sciences", q:"Combien de dents compte un adulte en moyenne (avec dents de sagesse) ?", opts:["28","30","32","34"], a:2},
+    {cat:"Sciences", q:"Quelle est la vitesse approximative du son dans l'air ?", opts:["34 m/s","340 m/s","3 400 m/s","34 000 m/s"], a:1},
+    {cat:"Sciences", q:"Qui a formulé la théorie de l'évolution par sélection naturelle ?", opts:["Gregor Mendel","Charles Darwin","Jean-Baptiste Lamarck","Alfred Wallace"], a:1},
+    {cat:"Sciences", q:"Quel est le plus grand organe interne du corps humain ?", opts:["Le foie","Le rein","L'estomac","Le pancréas"], a:0},
+    {cat:"Sciences", q:"Quelle particule subatomique porte une charge négative ?", opts:["Le proton","Le neutron","L'électron","Le photon"], a:2},
+    {cat:"Sciences", q:"Combien de temps la Terre met-elle environ à faire le tour du Soleil ?", opts:["30 jours","180 jours","365,25 jours","400 jours"], a:2},
+    {cat:"Sciences", q:"Quel est le principal composant du verre ?", opts:["Le calcaire","La silice","L'argile","Le gypse"], a:1},
+    {cat:"Sciences", q:"Quelle est la plus petite unité du vivant ?", opts:["L'atome","La molécule","La cellule","Le tissu"], a:2},
+    {cat:"Sciences", q:"Qui a découvert la radioactivité en 1896 ?", opts:["Marie Curie","Henri Becquerel","Pierre Curie","Ernest Rutherford"], a:1},
+    {cat:"Sciences", q:"Quel métal est liquide à température ambiante ?", opts:["Le plomb","Le mercure","L'étain","Le zinc"], a:1},
+    {cat:"Sciences", q:"Quelle est la formule chimique de l'eau ?", opts:["CO2","H2O","O2","NaCl"], a:1},
+    {cat:"Art", q:"Qui a peint 'La Nuit étoilée' ?", opts:["Claude Monet","Vincent van Gogh","Paul Cézanne","Edgar Degas"], a:1},
+    {cat:"Art", q:"Dans quel musée se trouve la Joconde ?", opts:["Musée d'Orsay","British Museum","Le Louvre","Prado"], a:2},
+    {cat:"Art", q:"Quel mouvement artistique est associé à Salvador Dalí ?", opts:["Cubisme","Surréalisme","Impressionnisme","Fauvisme"], a:1},
+    {cat:"Art", q:"Qui a peint 'Guernica' ?", opts:["Pablo Picasso","Joan Miró","Salvador Dalí","Diego Rivera"], a:0},
+    {cat:"Art", q:"Quel artiste a sculpté le 'David' ?", opts:["Donatello","Michel-Ange","Bernin","Rodin"], a:1},
+    {cat:"Art", q:"Quel peintre est célèbre pour sa série des nymphéas ?", opts:["Édouard Manet","Claude Monet","Auguste Renoir","Paul Gauguin"], a:1},
+    {cat:"Art", q:"Quel mouvement artistique est associé à Monet et Renoir ?", opts:["Le cubisme","Le surréalisme","L'impressionnisme","Le fauvisme"], a:2},
+    {cat:"Art", q:"Qui a peint 'L'École d'Athènes' ?", opts:["Léonard de Vinci","Raphaël","Le Titien","Le Caravage"], a:1},
+    {cat:"Art", q:"Quel peintre néerlandais s'est coupé une partie de l'oreille ?", opts:["Rembrandt","Johannes Vermeer","Vincent van Gogh","Piet Mondrian"], a:2},
+    {cat:"Art", q:"Qui est l'auteur du tableau 'Le Cri' ?", opts:["Gustav Klimt","Edvard Munch","James Ensor","Egon Schiele"], a:1},
+    {cat:"Art", q:"Quel peintre espagnol est considéré comme le fondateur du cubisme avec Braque ?", opts:["Salvador Dalí","Joan Miró","Pablo Picasso","Diego Velázquez"], a:2},
+    {cat:"Art", q:"Dans quelle ville se trouve le musée du Prado ?", opts:["Barcelone","Madrid","Lisbonne","Séville"], a:1},
+    {cat:"Art", q:"Quel artiste a créé l'œuvre 'Fontaine', un urinoir signé ?", opts:["Man Ray","Marcel Duchamp","André Breton","Francis Picabia"], a:1},
+    {cat:"Art", q:"Quel peintre est associé au Pop Art et à ses boîtes de soupe Campbell ?", opts:["Roy Lichtenstein","Andy Warhol","Keith Haring","Jasper Johns"], a:1},
+    {cat:"Art", q:"Dans quelle ville se trouve le musée d'Orsay ?", opts:["Lyon","Marseille","Paris","Bordeaux"], a:2},
+    {cat:"Art", q:"Quel sculpteur français a créé 'Le Penseur' ?", opts:["Camille Claudel","Auguste Rodin","Antoine Bourdelle","Aristide Maillol"], a:1},
+    {cat:"Art", q:"Quel peintre a réalisé 'La Liberté guidant le peuple' ?", opts:["Théodore Géricault","Eugène Delacroix","Jacques-Louis David","Jean Ingres"], a:1},
+    {cat:"Art", q:"Quel style architectural caractérise Notre-Dame de Paris ?", opts:["Roman","Gothique","Baroque","Renaissance"], a:1},
+    {cat:"Art", q:"Quel peintre flamand a réalisé 'La Jeune Fille à la perle' ?", opts:["Rembrandt","Pieter Bruegel","Johannes Vermeer","Frans Hals"], a:2},
+    {cat:"Art", q:"Quel peintre italien de la Renaissance a peint 'La Naissance de Vénus' ?", opts:["Sandro Botticelli","Titien","Le Corrège","Fra Angelico"], a:0},
+    {cat:"Sport", q:"Combien de joueurs compose une équipe de handball sur le terrain ?", opts:["5","6","7","11"], a:2},
+    {cat:"Sport", q:"Dans quel sport utilise-t-on le terme 'échec et mat' ?", opts:["Bridge","Go","Échecs","Dames"], a:2},
+    {cat:"Sport", q:"Combien de sets faut-il gagner pour remporter un match de tennis en 5 sets ?", opts:["2","3","4","5"], a:1},
+    {cat:"Sport", q:"Tous les combien d'années ont lieu les Jeux olympiques d'été ?", opts:["2 ans","3 ans","4 ans","5 ans"], a:2},
+    {cat:"Sport", q:"Combien de joueurs compose une équipe de football sur le terrain ?", opts:["9","10","11","12"], a:2},
+    {cat:"Sport", q:"Quel pays a remporté la Coupe du monde de football 2018 ?", opts:["Croatie","France","Belgique","Angleterre"], a:1},
+    {cat:"Sport", q:"Combien de joueurs compose une équipe de basketball sur le terrain ?", opts:["4","5","6","7"], a:1},
+    {cat:"Sport", q:"Quel sport se joue traditionnellement à Roland-Garros ?", opts:["Le golf","Le tennis","Le badminton","Le squash"], a:1},
+    {cat:"Sport", q:"Combien d'anneaux compte le symbole olympique ?", opts:["4","5","6","7"], a:1},
+    {cat:"Sport", q:"Quel pays est considéré comme le berceau du rugby moderne ?", opts:["La France","L'Angleterre","L'Afrique du Sud","La Nouvelle-Zélande"], a:1},
+    {cat:"Sport", q:"Quelle est la distance officielle d'un marathon ?", opts:["40 km","41,195 km","42,195 km","45 km"], a:2},
+    {cat:"Sport", q:"Dans quel sport utilise-t-on un volant ?", opts:["Le tennis de table","Le badminton","Le squash","Le tennis"], a:1},
+    {cat:"Sport", q:"Combien de joueurs compose une équipe de volley-ball sur le terrain ?", opts:["5","6","7","8"], a:1},
+    {cat:"Sport", q:"Quel surnom porte le Tour de France cycliste ?", opts:["Le Grand Tour","La Grande Boucle","Le Circuit d'Or","La Course Reine"], a:1},
+    {cat:"Sport", q:"Quelle équipe détient le plus grand nombre de titres de Coupe du monde de football ?", opts:["Allemagne","Argentine","Brésil","Italie"], a:2},
+    {cat:"Sport", q:"Dans quel sport peut-on marquer un point directement grâce à un service, appelé 'ace' ?", opts:["Le golf","Le tennis","L'escrime","Le badminton"], a:1},
+    {cat:"Sport", q:"Quelle est la durée réglementaire d'un match de football hors prolongations ?", opts:["60 minutes","80 minutes","90 minutes","100 minutes"], a:2},
+    {cat:"Sport", q:"Combien de points rapporte un essai au rugby à XV ?", opts:["3 points","4 points","5 points","7 points"], a:2},
+    {cat:"Sport", q:"Quel sport olympique de combat se pratique sur un tatami ?", opts:["La boxe","Le judo","L'escrime","La lutte"], a:1},
+    {cat:"Sport", q:"Quelle ville a accueilli les Jeux olympiques d'été 2024 ?", opts:["Los Angeles","Paris","Tokyo","Londres"], a:1},
+    {cat:"Littérature", q:"Qui a écrit 'Les Misérables' ?", opts:["Émile Zola","Victor Hugo","Gustave Flaubert","Honoré de Balzac"], a:1},
+    {cat:"Littérature", q:"Qui a créé le personnage de Sherlock Holmes ?", opts:["Agatha Christie","Arthur Conan Doyle","Edgar Allan Poe","Charles Dickens"], a:1},
+    {cat:"Littérature", q:"En quelle langue Dante a-t-il écrit 'La Divine Comédie' ?", opts:["Latin","Italien","Français","Grec"], a:1},
+    {cat:"Littérature", q:"Qui a écrit 'Roméo et Juliette' ?", opts:["Christopher Marlowe","William Shakespeare","Oscar Wilde","George Bernard Shaw"], a:1},
+    {cat:"Littérature", q:"Qui est l'auteure de la saga 'Harry Potter' ?", opts:["J.K. Rowling","Suzanne Collins","Stephenie Meyer","Cassandra Clare"], a:0},
+    {cat:"Littérature", q:"Quel auteur français a écrit 'Le Petit Prince' ?", opts:["Jean Giono","Antoine de Saint-Exupéry","Marcel Pagnol","André Gide"], a:1},
+    {cat:"Littérature", q:"Qui a écrit le roman '1984' ?", opts:["Aldous Huxley","George Orwell","Ray Bradbury","H.G. Wells"], a:1},
+    {cat:"Littérature", q:"Quel écrivain russe a écrit 'Guerre et Paix' ?", opts:["Fiodor Dostoïevski","Léon Tolstoï","Anton Tchekhov","Nicolas Gogol"], a:1},
+    {cat:"Littérature", q:"Qui est l'auteur de 'Madame Bovary' ?", opts:["Guy de Maupassant","Gustave Flaubert","Émile Zola","Stendhal"], a:1},
+    {cat:"Littérature", q:"Quel poète français a écrit 'Les Fleurs du mal' ?", opts:["Arthur Rimbaud","Paul Verlaine","Charles Baudelaire","Stéphane Mallarmé"], a:2},
+    {cat:"Littérature", q:"Qui a créé le personnage de Tarzan ?", opts:["Jack London","Edgar Rice Burroughs","Rudyard Kipling","Herman Melville"], a:1},
+    {cat:"Littérature", q:"Qui a écrit 'Don Quichotte' ?", opts:["Miguel de Cervantès","Federico García Lorca","Lope de Vega","Pablo Neruda"], a:0},
+    {cat:"Littérature", q:"Qui a écrit 'Vingt mille lieues sous les mers' ?", opts:["H.G. Wells","Jules Verne","Alexandre Dumas","Jack London"], a:1},
+    {cat:"Littérature", q:"Quel dramaturge français a écrit 'Le Malade imaginaire' ?", opts:["Racine","Corneille","Molière","Marivaux"], a:2},
+    {cat:"Littérature", q:"Qui a écrit 'Crime et Châtiment' ?", opts:["Léon Tolstoï","Fiodor Dostoïevski","Ivan Tourgueniev","Maxime Gorki"], a:1},
+    {cat:"Littérature", q:"Quel auteur américain a écrit 'Le Vieil Homme et la Mer' ?", opts:["Mark Twain","Ernest Hemingway","John Steinbeck","William Faulkner"], a:1},
+    {cat:"Littérature", q:"Qui a écrit la saga 'Le Seigneur des Anneaux' ?", opts:["C.S. Lewis","J.R.R. Tolkien","Terry Pratchett","Ursula K. Le Guin"], a:1},
+    {cat:"Littérature", q:"Quel écrivain français a créé le personnage du Comte de Monte-Cristo ?", opts:["Victor Hugo","Alexandre Dumas","Gustave Flaubert","Jules Verne"], a:1},
+    {cat:"Littérature", q:"Qui a écrit 'Orgueil et Préjugés' ?", opts:["Charlotte Brontë","Jane Austen","Virginia Woolf","Emily Brontë"], a:1},
+    {cat:"Littérature", q:"Quel poète est l'auteur du recueil 'Alcools' ?", opts:["Paul Éluard","Louis Aragon","Guillaume Apollinaire","Jacques Prévert"], a:2},
+    {cat:"Cinéma", q:"Qui a réalisé 'Pulp Fiction' ?", opts:["Martin Scorsese","Quentin Tarantino","David Fincher","Christopher Nolan"], a:1},
+    {cat:"Cinéma", q:"Quel film a remporté l'Oscar du meilleur film lors de la cérémonie de 2020 ?", opts:["1917","Joker","Parasite","Once Upon a Time in Hollywood"], a:2},
+    {cat:"Cinéma", q:"Quel réalisateur a créé la saga 'Star Wars' ?", opts:["Steven Spielberg","George Lucas","James Cameron","Ridley Scott"], a:1},
+    {cat:"Cinéma", q:"Qui a réalisé 'Titanic' (1997) ?", opts:["Steven Spielberg","James Cameron","Ridley Scott","Michael Bay"], a:1},
+    {cat:"Cinéma", q:"Quel film d'animation raconte l'histoire d'un poisson-clown nommé Nemo ?", opts:["Vaiana","Le Monde de Nemo","Rio","Là-haut"], a:1},
+    {cat:"Cinéma", q:"Quel acteur incarne Iron Man dans l'univers cinématographique Marvel ?", opts:["Chris Evans","Chris Hemsworth","Robert Downey Jr.","Mark Ruffalo"], a:2},
+    {cat:"Cinéma", q:"Quel réalisateur est connu pour 'Psychose' et 'Vertigo' ?", opts:["Orson Welles","Alfred Hitchcock","Billy Wilder","Fritz Lang"], a:1},
+    {cat:"Cinéma", q:"Quel film d'animation met en scène un jeune lion nommé Simba ?", opts:["Madagascar","Le Roi Lion","Kung Fu Panda","Frère des ours"], a:1},
+    {cat:"Cinéma", q:"Qui a réalisé la trilogie cinématographique 'Le Seigneur des Anneaux' ?", opts:["Peter Jackson","Guillermo del Toro","James Cameron","David Yates"], a:0},
+    {cat:"Cinéma", q:"Quel acteur incarne le pirate Jack Sparrow ?", opts:["Orlando Bloom","Johnny Depp","Geoffrey Rush","Javier Bardem"], a:1},
+    {cat:"Cinéma", q:"Quel film raconte le naufrage du Titanic avec Leonardo DiCaprio et Kate Winslet ?", opts:["Titanic","L'Odyssée","Le Naufrage","Poséidon"], a:0},
+    {cat:"Cinéma", q:"Quel réalisateur français a réalisé 'Le Fabuleux Destin d'Amélie Poulain' ?", opts:["Luc Besson","Jean-Pierre Jeunet","Michel Gondry","Jacques Audiard"], a:1},
+    {cat:"Cinéma", q:"Quel studio d'animation a produit 'Toy Story' ?", opts:["DreamWorks","Pixar","Illumination","Blue Sky Studios"], a:1},
+    {cat:"Cinéma", q:"Qui a réalisé le film 'Inception' ?", opts:["Denis Villeneuve","Christopher Nolan","Ridley Scott","David Fincher"], a:1},
+    {cat:"Cinéma", q:"Quel acteur incarne James Bond dans 'Skyfall' et 'Spectre' ?", opts:["Pierce Brosnan","Daniel Craig","Timothy Dalton","Roger Moore"], a:1},
+    {cat:"Cinéma", q:"Quel film met en scène une DeLorean voyageant dans le temps ?", opts:["Retour vers le futur","Interstellar","Looper","Terminator"], a:0},
+    {cat:"Cinéma", q:"Qui a composé la musique originale de 'Star Wars' ?", opts:["Hans Zimmer","John Williams","Danny Elfman","Alan Silvestri"], a:1},
+    {cat:"Cinéma", q:"Quel réalisateur a créé la saga 'Indiana Jones' ?", opts:["George Lucas","Steven Spielberg","Robert Zemeckis","Brian De Palma"], a:1},
+    {cat:"Cinéma", q:"Dans quel film Marlon Brando incarne-t-il Don Corleone ?", opts:["Les Affranchis","Le Parrain","Scarface","Casino"], a:1},
+    {cat:"Cinéma", q:"Quel film sur le naufrage d'un paquebot a remporté 11 Oscars en 1998 ?", opts:["Titanic","Apollo 13","Pearl Harbor","Le Jour d'après"], a:0},
+    {cat:"Musique", q:"Quel groupe britannique a chanté 'Bohemian Rhapsody' ?", opts:["The Rolling Stones","Queen","Led Zeppelin","Pink Floyd"], a:1},
+    {cat:"Musique", q:"Quel chanteur est surnommé le 'Roi de la pop' ?", opts:["Prince","Michael Jackson","Elvis Presley","Stevie Wonder"], a:1},
+    {cat:"Musique", q:"Quel compositeur allemand est devenu sourd durant sa carrière ?", opts:["Johann Sebastian Bach","Ludwig van Beethoven","Johannes Brahms","Franz Schubert"], a:1},
+    {cat:"Musique", q:"Quel groupe a interprété 'Hey Jude' ?", opts:["The Rolling Stones","The Beatles","The Who","The Kinks"], a:1},
+    {cat:"Musique", q:"Quel instrument de musique compte généralement 88 touches ?", opts:["L'orgue","Le piano","L'accordéon","Le clavecin"], a:1},
+    {cat:"Musique", q:"Quelle chanteuse française a interprété 'La Vie en rose' ?", opts:["Barbara","Édith Piaf","Dalida","Juliette Gréco"], a:1},
+    {cat:"Musique", q:"Quel compositeur autrichien, enfant prodige, a écrit 'La Flûte enchantée' ?", opts:["Joseph Haydn","Wolfgang Amadeus Mozart","Franz Liszt","Antonio Salieri"], a:1},
+    {cat:"Musique", q:"Quel groupe suédois a remporté l'Eurovision 1974 avec 'Waterloo' ?", opts:["Roxette","ABBA","Ace of Base","Europe"], a:1},
+    {cat:"Musique", q:"Quel instrument à cordes se joue traditionnellement avec un archet ?", opts:["La guitare","Le violon","La harpe","Le banjo"], a:1},
+    {cat:"Musique", q:"Quel chanteur américain est surnommé 'The King' ?", opts:["Elvis Presley","Frank Sinatra","Bob Dylan","Jerry Lee Lewis"], a:0},
+    {cat:"Musique", q:"Quel compositeur italien a écrit 'Les Quatre Saisons' ?", opts:["Antonio Vivaldi","Giuseppe Verdi","Gioachino Rossini","Niccolò Paganini"], a:0},
+    {cat:"Musique", q:"Quel groupe britannique des années 60 est surnommé le 'Fab Four' ?", opts:["The Rolling Stones","The Beatles","The Kinks","The Who"], a:1},
+    {cat:"Musique", q:"Quel compositeur français a écrit l'opéra 'Carmen' ?", opts:["Georges Bizet","Hector Berlioz","Camille Saint-Saëns","Charles Gounod"], a:0},
+    {cat:"Musique", q:"Quel duo français de musique électronique est connu pour ses casques de robots ?", opts:["Justice","Daft Punk","Air","Phoenix"], a:1},
+    {cat:"Musique", q:"Combien de cordes possède une guitare classique standard ?", opts:["4","5","6","7"], a:2},
+    {cat:"Gastronomie", q:"Quel pays est à l'origine de la pizza ?", opts:["L'Espagne","L'Italie","La Grèce","La France"], a:1},
+    {cat:"Gastronomie", q:"Quel fromage français au lait de brebis est produit dans le Sud-Ouest ?", opts:["Le Comté","Le Roquefort","Le Reblochon","Le Cantal"], a:1},
+    {cat:"Gastronomie", q:"Quelle boisson est obtenue par fermentation du raisin ?", opts:["La bière","Le cidre","Le vin","L'hydromel"], a:2},
+    {cat:"Gastronomie", q:"Quel plat japonais est composé de riz vinaigré et souvent de poisson cru ?", opts:["Les ramen","Les sushis","Les yakitori","Le tempura"], a:1},
+    {cat:"Gastronomie", q:"Quelle épice est considérée comme la plus chère au monde ?", opts:["La vanille","La cannelle","Le safran","Le poivre"], a:2},
+    {cat:"Gastronomie", q:"Quel pays est réputé pour le fromage feta ?", opts:["L'Italie","La Grèce","La Turquie","L'Espagne"], a:1},
+    {cat:"Gastronomie", q:"Quelle sauce à base d'œufs et d'huile accompagne souvent les frites en Belgique ?", opts:["La vinaigrette","La mayonnaise","La béchamel","La hollandaise"], a:1},
+    {cat:"Gastronomie", q:"Quel dessert français en pâte à choux est garni de crème et glacé au chocolat ?", opts:["Le paris-brest","L'éclair","Le mille-feuille","Le chou à la crème"], a:1},
+    {cat:"Gastronomie", q:"Quelle céréale est à la base du pain traditionnel ?", opts:["Le riz","Le maïs","Le blé","L'orge"], a:2},
+    {cat:"Gastronomie", q:"Quel plat marseillais à base de poissons est une spécialité provençale ?", opts:["Le cassoulet","La bouillabaisse","La ratatouille","La brandade"], a:1},
+    {cat:"Gastronomie", q:"Quelle boisson chaude est préparée à partir de grains torréfiés ?", opts:["Le thé","Le café","Le chocolat chaud","La tisane"], a:1},
+    {cat:"Gastronomie", q:"De quelle région du monde est originaire le cacao, à la base du chocolat ?", opts:["L'Afrique de l'Ouest","La Mésoamérique","L'Asie du Sud-Est","Le Moyen-Orient"], a:1},
+    {cat:"Gastronomie", q:"Quel fromage italien à pâte filée est traditionnellement utilisé sur les pizzas ?", opts:["Le parmesan","La mozzarella","Le gorgonzola","La ricotta"], a:1},
+    {cat:"Gastronomie", q:"Quelle ville française est réputée pour sa moutarde ?", opts:["Dijon","Lyon","Reims","Colmar"], a:0},
+    {cat:"Gastronomie", q:"Quel agrume est utilisé pour préparer le limoncello ?", opts:["L'orange","Le citron","Le pamplemousse","La mandarine"], a:1},
+    {cat:"Divers", q:"Qui est couramment crédité de l'invention de l'ampoule électrique moderne ?", opts:["Nikola Tesla","Thomas Edison","Alexander Graham Bell","James Watt"], a:1},
+    {cat:"Divers", q:"Quelle entreprise a créé l'iPhone ?", opts:["Samsung","Google","Apple","Microsoft"], a:2},
+    {cat:"Divers", q:"Quel réseau social a été fondé par Mark Zuckerberg ?", opts:["Instagram","Facebook","Snapchat","LinkedIn"], a:1},
+    {cat:"Divers", q:"Quelle est la monnaie officielle du Royaume-Uni ?", opts:["L'euro","La livre sterling","Le dollar","Le franc"], a:1},
+    {cat:"Divers", q:"Combien de couleurs compte l'arc-en-ciel traditionnellement décrit ?", opts:["5","6","7","8"], a:2},
+    {cat:"Divers", q:"Quelles couleurs composent le drapeau français, de gauche à droite ?", opts:["Rouge, blanc, bleu","Bleu, blanc, rouge","Blanc, bleu, rouge","Bleu, rouge, blanc"], a:1},
+    {cat:"Divers", q:"Quel jeu de société se joue avec des propriétés et de l'argent fictif ?", opts:["Le Cluedo","Le Monopoly","Le Trivial Pursuit","Le Risk"], a:1},
+    {cat:"Divers", q:"Quelle est la langue officielle du Brésil ?", opts:["L'espagnol","Le portugais","L'anglais","Le français"], a:1},
+    {cat:"Divers", q:"Combien de faces possède un dé standard ?", opts:["4","6","8","12"], a:1},
+    {cat:"Divers", q:"Quelle organisation internationale a son siège à New York ?", opts:["L'OTAN","L'ONU","L'OMS","L'Unesco"], a:1},
+    {cat:"Divers", q:"Quel est le plus grand mammifère terrestre ?", opts:["Le rhinocéros","La girafe","L'éléphant d'Afrique","L'hippopotame"], a:2},
+    {cat:"Divers", q:"Quel est l'animal terrestre le plus rapide au monde ?", opts:["Le lion","Le guépard","L'antilope","Le cheval"], a:1},
+    {cat:"Divers", q:"Quelle monnaie est utilisée dans la zone euro ?", opts:["Le franc","L'euro","Le mark","La lire"], a:1},
+    {cat:"Divers", q:"Quel est le plus grand désert du monde, glaces polaires comprises ?", opts:["Le Sahara","Le désert de Gobi","L'Antarctique","Le Kalahari"], a:2},
+    {cat:"Divers", q:"Sous quel nom le réseau social aujourd'hui appelé X était-il connu à l'origine ?", opts:["Snapchat","Twitter","Tumblr","Periscope"], a:1}
+  ];
+
+  const TOTAL_Q = 10;
+  let questions = [];
+  let current = 0;
+  let score = 0;
+  let streak = 0;
+  let bestStreak = 0;
+  let wrongCount = 0;
+  let answered = false;
+
+  const startScreen = document.getElementById('startScreen');
+  const quizScreen = document.getElementById('quizScreen');
+  const resultsScreen = document.getElementById('resultsScreen');
+  const startBtn = document.getElementById('startBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const retryBtn = document.getElementById('retryBtn');
+  const progressRow = document.getElementById('progressRow');
+  const qCount = document.getElementById('qCount');
+  const catTag = document.getElementById('catTag');
+  const questionText = document.getElementById('questionText');
+  const optionsList = document.getElementById('optionsList');
+  const feedback = document.getElementById('feedback');
+  const flipScore = document.getElementById('flipScore');
+  const streakBadge = document.getElementById('streakBadge');
+  const streakN = document.getElementById('streakN');
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    return a;
+  }
+
+  function buildProgress(){
+    progressRow.innerHTML = '';
+    for(let i=0;i<TOTAL_Q;i++){
+      const d = document.createElement('div');
+      d.className = 'progress-dot';
+      d.innerHTML = '<div class="fill"></div>';
+      progressRow.appendChild(d);
+    }
+  }
+
+  function updateProgress(index, state){
+    const dot = progressRow.children[index];
+    dot.classList.add(state === 'wrong' ? 'wrong' : 'done');
+  }
+
+  function setCurrentDot(index){
+    Array.from(progressRow.children).forEach((d,i)=>{
+      d.classList.remove('current');
+      if(i===index) d.classList.add('current');
+    });
+  }
+
+  function updateScoreDisplay(animate){
+    const s = String(score).padStart(2,'0');
+    const digits = flipScore.children;
+    digits[0].textContent = s[0];
+    digits[1].textContent = s[1];
+    if(animate){
+      digits[1].classList.add('flip');
+      setTimeout(()=>digits[1].classList.remove('flip'), 400);
+    }
+  }
+
+  function loadQuestion(){
+    answered = false;
+    const q = questions[current];
+    qCount.textContent = 'QUESTION ' + (current+1) + ' / ' + TOTAL_Q;
+    catTag.textContent = q.cat;
+    questionText.textContent = q.q;
+    feedback.classList.remove('show');
+    feedback.textContent = '';
+    nextBtn.classList.remove('show');
+    setCurrentDot(current);
+
+    if(streak >= 2){
+      streakN.textContent = streak;
+      streakBadge.classList.add('show');
+    } else {
+      streakBadge.classList.remove('show');
+    }
+
+    // shuffle options while tracking correct answer
+    const optIndices = q.opts.map((_,i)=>i);
+    const shuffled = shuffle(optIndices);
+    const correctShuffledPos = shuffled.indexOf(q.a);
+
+    optionsList.innerHTML = '';
+    const letters = ['A','B','C','D'];
+    shuffled.forEach((origIdx, pos)=>{
+      const btn = document.createElement('button');
+      btn.className = 'option';
+      btn.innerHTML = '<span class="letter">'+letters[pos]+'</span><span>'+q.opts[origIdx]+'</span>';
+      btn.addEventListener('click', ()=> selectAnswer(pos, correctShuffledPos, btn));
+      optionsList.appendChild(btn);
+    });
+  }
+
+  function selectAnswer(pos, correctPos, btnEl){
+    if(answered) return;
+    answered = true;
+    const allOpts = Array.from(optionsList.children);
+    allOpts.forEach(o=>o.classList.add('disabled'));
+
+    if(pos === correctPos){
+      btnEl.classList.add('correct');
+      score++;
+      streak++;
+      bestStreak = Math.max(bestStreak, streak);
+      feedback.textContent = '✓ Bonne réponse !';
+      updateProgress(current, 'correct');
+    } else {
+      btnEl.classList.add('wrong');
+      allOpts[correctPos].classList.add('correct');
+      streak = 0;
+      wrongCount++;
+      feedback.textContent = '✕ Raté — la bonne réponse était surlignée.';
+      updateProgress(current, 'wrong');
+    }
+    allOpts.forEach((o,i)=>{ if(i!==pos && i!==correctPos) o.classList.add('dim'); });
+
+    updateScoreDisplay(pos === correctPos);
+    feedback.classList.add('show');
+    nextBtn.textContent = current === TOTAL_Q-1 ? 'Voir les résultats' : 'Question suivante';
+    nextBtn.classList.add('show');
+  }
+
+  function nextQuestion(){
+    current++;
+    if(current >= TOTAL_Q){
+      showResults();
+    } else {
+      loadQuestion();
+    }
+  }
+
+  function showResults(){
+    quizScreen.style.display = 'none';
+    resultsScreen.classList.remove('hidden');
+    document.getElementById('finalScore').innerHTML = score + '<span>/10</span>';
+    document.getElementById('statCorrect').textContent = score;
+    document.getElementById('statWrong').textContent = wrongCount;
+    document.getElementById('statStreak').textContent = bestStreak;
+
+    let title, subtitle;
+    if(score >= 9){ title = 'Sans-faute ou presque !'; subtitle = 'Impressionnant, tu maîtrises un panel très large de sujets.'; }
+    else if(score >= 7){ title = 'Très solide !'; subtitle = 'Une belle culture générale, quelques détails à peaufiner.'; }
+    else if(score >= 4){ title = 'Pas mal du tout'; subtitle = 'Une bonne base, encore un peu de marge de progression.'; }
+    else { title = 'À revoir en révisant !'; subtitle = 'Chaque partie est un tirage différent, retente ta chance.'; }
+    document.getElementById('resultTitle').textContent = title;
+    document.getElementById('resultSubtitle').textContent = subtitle;
+  }
+
+  function startGame(){
+    questions = shuffle(BANK).slice(0, TOTAL_Q);
+    current = 0; score = 0; streak = 0; bestStreak = 0; wrongCount = 0;
+    startScreen.classList.add('hidden');
+    resultsScreen.classList.add('hidden');
+    quizScreen.classList.remove('hidden');
+    quizScreen.style.display = 'flex';
+    buildProgress();
+    updateScoreDisplay(false);
+    loadQuestion();
+  }
+
+  startBtn.addEventListener('click', startGame);
+  retryBtn.addEventListener('click', startGame);
+  nextBtn.addEventListener('click', nextQuestion);
+
+})();
+</script>
+</body>
+</html>
